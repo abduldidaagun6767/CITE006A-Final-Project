@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TIP Lost &amp; Found</title>
+<link rel="icon" href="tip-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div class="brand">
+        <img class="logo" src="tip-logo.png" alt="Technological Institute of the Philippines seal" width="88" height="88">
+        <div>
+          <p class="school">Technological Institute of the Philippines</p>
+          <h1>Lost <span>&amp; Found</span></h1>
+          <p class="sub">Lost something on campus? Found something that isn't yours? Post it here so it gets back to its owner.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn ghost" id="theme" aria-label="Toggle dark mode">Theme</button>
+        <button class="btn primary" id="add">Report an item</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="Search by name, place or description" aria-label="Search items">
+    <select id="ftype" aria-label="Filter by type"><option value="">Lost and found</option><option value="lost">Lost</option><option value="found">Found</option></select>
+    <select id="fcampus" aria-label="Filter by campus"><option value="">Both campuses</option><option>Manila</option><option>Quezon City</option></select>
+    <select id="fcat" aria-label="Filter by category"></select>
+    <select id="fstat" aria-label="Filter by status"><option value="open">Still open</option><option value="returned">Returned</option><option value="">All statuses</option></select>
+  </div>
+
+  <main class="grid" id="list"></main>
+</div>
+
+<dialog id="formDlg">
+  <form class="dlg" id="form" method="dialog" novalidate>
+    <h2 id="formTitle">Report an item</h2>
+    <div class="seg" role="radiogroup" aria-label="Item type">
+      <label><input type="radio" name="type" value="lost" checked><span class="l">I lost it</span></label>
+      <label><input type="radio" name="type" value="found"><span class="f">I found it</span></label>
+    </div>
+    <label>Item name<input name="title" maxlength="60" placeholder="Blue water bottle" required></label>
+    <div class="two">
+      <label>Category<select name="category"></select></label>
+      <label>Date<input type="date" name="date" required></label>
+    </div>
+    <div class="two">
+      <label>Campus<select name="campus"><option>Manila</option><option>Quezon City</option></select></label>
+      <label>Specific location<input name="location" maxlength="60" placeholder="Library, 2nd floor" required></label>
+    </div>
+    <label>Description<textarea name="description" rows="3" maxlength="300" placeholder="Color, brand, marks, what's inside"></textarea></label>
+    <label>Contact (email or phone)<input name="contact" maxlength="60" required></label>
+    <p class="err" id="err" role="alert"></p>
+    <div class="foot">
+      <button type="button" class="btn ghost" id="cancel">Cancel</button>
+      <button type="submit" class="btn primary" id="save">Save item</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="delDlg">
+  <div class="dlg">
+    <h2>Delete this item?</h2>
+    <p id="delText" style="margin:0;color:var(--muted)"></p>
+    <div class="foot">
+      <button class="btn ghost" id="delNo">Keep it</button>
+      <button class="btn danger" id="delYes">Delete item</button>
+    </div>
+  </div>
+</dialog>
+<div id="toast" role="status"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
