@@ -1,83 +1,91 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TIP Lost &amp; Found</title>
-<link rel="icon" href="tip-logo.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <div class="top">
-      <div class="brand">
-        <img class="logo" src="tip-logo.png" alt="Technological Institute of the Philippines seal" width="88" height="88">
-        <div>
-          <p class="school">Technological Institute of the Philippines</p>
-          <h1>Lost <span>&amp; Found</span></h1>
-          <p class="sub">Lost something on campus? Found something that isn't yours? Post it here so it gets back to its owner.</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn ghost" id="theme" aria-label="Toggle dark mode">Theme</button>
-        <button class="btn primary" id="add">Report an item</button>
-      </div>
-    </div>
-    <div class="stats" id="stats"></div>
-  </header>
+const CATS=["Electronics","Bags","Clothing","Keys & Cards","Books & Notes","Bottles & Lunch","Other"];
+const KEY="tip-lost-found-v2";
+const $=s=>document.querySelector(s);
+const today=()=>new Date().toISOString().slice(0,10);
+const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10)};
+const SEED=()=>[
+  {id:"s1",type:"lost",title:"Black Casio calculator",category:"Electronics",campus:"Manila",location:"Engineering Hall, Room 204",date:daysAgo(1),description:"fx-991 with a green sticker on the back.",contact:"maya@tip.edu.ph",status:"open"},
+  {id:"s2",type:"found",title:"Student ID card",category:"Keys & Cards",campus:"Quezon City",location:"Cafeteria entrance",date:daysAgo(2),description:"Found near the tray return. Name starts with J. Santos.",contact:"Security desk, ext. 114",status:"open"},
+  {id:"s3",type:"found",title:"Grey hoodie",category:"Clothing",campus:"Quezon City",location:"Gym bleachers",date:daysAgo(4),description:"Size M, university logo on the chest.",contact:"gym@tip.edu.ph",status:"open"},
+  {id:"s4",type:"lost",title:"Blue steel water bottle",category:"Bottles & Lunch",campus:"Manila",location:"Library, 2nd floor",date:daysAgo(6),description:"Dented at the bottom, sticker of a cat.",contact:"0917 555 0142",status:"returned"}
+];
 
-  <div class="tools">
-    <input type="search" id="q" placeholder="Search by name, place or description" aria-label="Search items">
-    <select id="ftype" aria-label="Filter by type"><option value="">Lost and found</option><option value="lost">Lost</option><option value="found">Found</option></select>
-    <select id="fcampus" aria-label="Filter by campus"><option value="">Both campuses</option><option>Manila</option><option>Quezon City</option></select>
-    <select id="fcat" aria-label="Filter by category"></select>
-    <select id="fstat" aria-label="Filter by status"><option value="open">Still open</option><option value="returned">Returned</option><option value="">All statuses</option></select>
-  </div>
+let items=load(), editId=null, delId=null;
 
-  <main class="grid" id="list"></main>
-</div>
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}
+  return SEED();
+}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("show"),2200)}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=d=>new Date(d+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
 
-<dialog id="formDlg">
-  <form class="dlg" id="form" method="dialog" novalidate>
-    <h2 id="formTitle">Report an item</h2>
-    <div class="seg" role="radiogroup" aria-label="Item type">
-      <label><input type="radio" name="type" value="lost" checked><span class="l">I lost it</span></label>
-      <label><input type="radio" name="type" value="found"><span class="f">I found it</span></label>
-    </div>
-    <label>Item name<input name="title" maxlength="60" placeholder="Blue water bottle" required></label>
-    <div class="two">
-      <label>Category<select name="category"></select></label>
-      <label>Date<input type="date" name="date" required></label>
-    </div>
-    <div class="two">
-      <label>Campus<select name="campus"><option>Manila</option><option>Quezon City</option></select></label>
-      <label>Specific location<input name="location" maxlength="60" placeholder="Library, 2nd floor" required></label>
-    </div>
-    <label>Description<textarea name="description" rows="3" maxlength="300" placeholder="Color, brand, marks, what's inside"></textarea></label>
-    <label>Contact (email or phone)<input name="contact" maxlength="60" required></label>
-    <p class="err" id="err" role="alert"></p>
-    <div class="foot">
-      <button type="button" class="btn ghost" id="cancel">Cancel</button>
-      <button type="submit" class="btn primary" id="save">Save item</button>
-    </div>
-  </form>
-</dialog>
+// ---------- READ ----------
+function render(){
+  const q=$("#q").value.trim().toLowerCase(), t=$("#ftype").value, c=$("#fcat").value, s=$("#fstat").value, cp=$("#fcampus").value;
+  const out=items.filter(i=>
+    (!t||i.type===t)&&(!cp||i.campus===cp)&&(!c||i.category===c)&&(!s||i.status===s)&&
+    (!q||[i.title,i.campus,i.location,i.description,i.category].join(" ").toLowerCase().includes(q))
+  ).sort((a,b)=>b.date.localeCompare(a.date));
+  $("#list").innerHTML=out.length?out.map(card).join(""):
+    `<div class="empty">No items match. Clear the filters or report a new item.</div>`;
+  const n=k=>items.filter(i=>i.type===k&&i.status==="open").length;
+  $("#stats").innerHTML=`<div class="stat"><b>${n("lost")}</b>lost, still open</div><div class="stat"><b>${n("found")}</b>found, waiting for owner</div><div class="stat"><b>${items.filter(i=>i.status==="returned").length}</b>returned</div>`;
+}
+function card(i){
+  const ret=i.status==="returned";
+  return `<article class="card ${i.type} ${ret?"returned":""}">
+    <div class="row"><span class="badge">${i.type==="lost"?"Lost":"Found"}${ret?" · Returned":""}</span><span class="meta">${esc(i.category)}</span></div>
+    <h3>${esc(i.title)}</h3>
+    ${i.description?`<p>${esc(i.description)}</p>`:""}
+    <div class="meta"><span>Campus: ${esc(i.campus||"Not specified")}</span><span>Where: ${esc(i.location)}</span><span>When: ${fmt(i.date)}</span><span>Contact: ${esc(i.contact)}</span></div>
+    <div class="actions">
+      <button class="btn sm ghost" data-a="edit" data-id="${i.id}">Edit</button>
+      <button class="btn sm ghost" data-a="toggle" data-id="${i.id}">${ret?"Reopen":"Mark returned"}</button>
+      <button class="btn sm ghost" data-a="del" data-id="${i.id}">Delete</button>
+    </div></article>`;
+}
 
-<dialog id="delDlg">
-  <div class="dlg">
-    <h2>Delete this item?</h2>
-    <p id="delText" style="margin:0;color:var(--muted)"></p>
-    <div class="foot">
-      <button class="btn ghost" id="delNo">Keep it</button>
-      <button class="btn danger" id="delYes">Delete item</button>
-    </div>
-  </div>
-</dialog>
-<div id="toast" role="status"></div>
+// ---------- CREATE / UPDATE ----------
+function openForm(id){
+  editId=id||null;
+  const f=$("#form"), i=items.find(x=>x.id===id);
+  f.reset(); $("#err").textContent="";
+  $("#formTitle").textContent=i?"Edit item":"Report an item";
+  f.date.value=i?i.date:today(); f.date.max=today();
+  if(i){f.type.value=i.type;f.title.value=i.title;f.category.value=i.category;f.campus.value=i.campus||"Manila";f.location.value=i.location;f.description.value=i.description;f.contact.value=i.contact}
+  $("#formDlg").showModal(); f.title.focus();
+}
+$("#form").addEventListener("submit",e=>{
+  e.preventDefault();
+  const f=e.target, d={type:f.type.value,title:f.title.value.trim(),category:f.category.value,campus:f.campus.value,location:f.location.value.trim(),date:f.date.value,description:f.description.value.trim(),contact:f.contact.value.trim()};
+  if(!d.title||!d.location||!d.contact||!d.date){$("#err").textContent="Fill in the item name, location, date and contact.";return}
+  if(editId){items=items.map(i=>i.id===editId?{...i,...d}:i);toast("Item updated")}
+  else{items.unshift({id:"i"+Date.now(),status:"open",...d});toast("Item added")}
+  persist();render();$("#formDlg").close();
+});
+$("#cancel").onclick=()=>$("#formDlg").close();
 
-<script src="app.js"></script>
-</body>
-</html>
+// ---------- DELETE + status ----------
+$("#list").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-a]"); if(!b)return;
+  const id=b.dataset.id, i=items.find(x=>x.id===id);
+  if(b.dataset.a==="edit")openForm(id);
+  if(b.dataset.a==="toggle"){i.status=i.status==="returned"?"open":"returned";persist();render();toast(i.status==="returned"?"Marked as returned":"Item reopened")}
+  if(b.dataset.a==="del"){delId=id;$("#delText").textContent=`"${i.title}" will be removed permanently.`;$("#delDlg").showModal()}
+});
+$("#delNo").onclick=()=>$("#delDlg").close();
+$("#delYes").onclick=()=>{items=items.filter(i=>i.id!==delId);persist();render();$("#delDlg").close();toast("Item deleted")};
+
+// ---------- setup ----------
+const opts=CATS.map(c=>`<option>${c}</option>`).join("");
+$("#form").category.innerHTML=opts;
+$("#fcat").innerHTML=`<option value="">All categories</option>`+opts;
+["#q","#ftype","#fcampus","#fcat","#fstat"].forEach(s=>$(s).addEventListener("input",render));
+$("#add").onclick=()=>openForm();
+$("#theme").onclick=()=>{
+  const r=document.documentElement, dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;
+  r.dataset.theme=dark?"light":"dark";
+};
+render();
