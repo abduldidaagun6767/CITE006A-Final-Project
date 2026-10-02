@@ -68,3 +68,11 @@ label{display:grid;gap:4px;font-size:.9rem;font-weight:600}
 #toast.show{opacity:1}
 @media (max-width:480px){.two{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Hover pop-up effect */
+.card{transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease}
+.card:hover,.card:focus-within{transform:translateY(-6px) scale(1.03);box-shadow:0 16px 34px rgba(20,33,61,.22);z-index:2}
+.card.returned:hover,.card.returned:focus-within{opacity:1}
+.btn{transition:transform .15s ease,filter .15s ease,background .15s ease}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.btn.ghost:hover{background:var(--bg)}
