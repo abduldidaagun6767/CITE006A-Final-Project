@@ -109,8 +109,4 @@ $("#form").category.innerHTML=opts;
 $("#fcat").innerHTML=`<option value="">All categories</option>`+opts;
 ["#q","#ftype","#fcampus","#fcat","#fstat"].forEach(s=>$(s).addEventListener("input",render));
 $("#add").onclick=()=>openForm();
-$("#theme").onclick=()=>{
-  const r=document.documentElement, dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;
-  r.dataset.theme=dark?"light":"dark";
-};
 render();
