@@ -76,3 +76,9 @@ label{display:grid;gap:4px;font-size:.9rem;font-weight:600}
 .btn{transition:transform .15s ease,filter .15s ease,background .15s ease}
 .btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
 .btn.ghost:hover{background:var(--bg)}
+
+/* Item photos */
+.photo{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;background:var(--bg)}
+.prev:empty{display:none}
+.prev{display:grid;gap:8px;justify-items:start}
+.prev img{max-width:100%;max-height:170px;border-radius:8px;border:1px solid var(--line)}
