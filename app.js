@@ -10,13 +10,13 @@ const SEED=()=>[
   {id:"s4",type:"lost",title:"Blue steel water bottle",category:"Bottles & Lunch",campus:"Manila",location:"Library, 2nd floor",date:daysAgo(6),description:"Dented at the bottom, sticker of a cat.",contact:"0917 555 0142",status:"returned"}
 ];
 
-let items=load(), editId=null, delId=null;
+let items=load(), editId=null, delId=null, photoData="";
 
 function load(){
   try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}
   return SEED();
 }
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(items));return true}catch(e){toast("Storage is full, so the photo could not be saved. Try a smaller photo or delete old items.");return false}}
 function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("show"),2200)}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=d=>new Date(d+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
@@ -37,6 +37,7 @@ function card(i){
   const ret=i.status==="returned";
   return `<article class="card ${i.type} ${ret?"returned":""}">
     <div class="row"><span class="badge">${i.type==="lost"?"Lost":"Found"}${ret?" · Returned":""}</span><span class="meta">${esc(i.category)}</span></div>
+    ${i.photo?`<img class="photo" src="${i.photo}" alt="Photo of ${esc(i.title)}">`:""}
     <h3>${esc(i.title)}</h3>
     ${i.description?`<p>${esc(i.description)}</p>`:""}
     <div class="meta"><span>Campus: ${esc(i.campus||"Not specified")}</span><span>Where: ${esc(i.location)}</span><span>When: ${fmt(i.date)}</span><span>Contact: ${esc(i.contact)}</span></div>
@@ -51,7 +52,7 @@ function card(i){
 function openForm(id){
   editId=id||null;
   const f=$("#form"), i=items.find(x=>x.id===id);
-  f.reset(); $("#err").textContent="";
+  f.reset(); $("#err").textContent=""; photoData=i?(i.photo||""):""; showPrev();
   $("#formTitle").textContent=i?"Edit item":"Report an item";
   f.date.value=i?i.date:today(); f.date.max=today();
   if(i){f.type.value=i.type;f.title.value=i.title;f.category.value=i.category;f.campus.value=i.campus||"Manila";f.location.value=i.location;f.description.value=i.description;f.contact.value=i.contact}
@@ -59,7 +60,7 @@ function openForm(id){
 }
 $("#form").addEventListener("submit",e=>{
   e.preventDefault();
-  const f=e.target, d={type:f.type.value,title:f.title.value.trim(),category:f.category.value,campus:f.campus.value,location:f.location.value.trim(),date:f.date.value,description:f.description.value.trim(),contact:f.contact.value.trim()};
+  const f=e.target, d={type:f.type.value,title:f.title.value.trim(),category:f.category.value,campus:f.campus.value,location:f.location.value.trim(),date:f.date.value,description:f.description.value.trim(),contact:f.contact.value.trim(),photo:photoData};
   if(!d.title||!d.location||!d.contact||!d.date){$("#err").textContent="Fill in the item name, location, date and contact.";return}
   if(editId){items=items.map(i=>i.id===editId?{...i,...d}:i);toast("Item updated")}
   else{items.unshift({id:"i"+Date.now(),status:"open",...d});toast("Item added")}
@@ -77,6 +78,30 @@ $("#list").addEventListener("click",e=>{
 });
 $("#delNo").onclick=()=>$("#delDlg").close();
 $("#delYes").onclick=()=>{items=items.filter(i=>i.id!==delId);persist();render();$("#delDlg").close();toast("Item deleted")};
+
+// ---------- photo upload ----------
+function showPrev(){
+  $("#prev").innerHTML=photoData?`<img src="${photoData}" alt="Selected photo preview"><button type="button" class="btn sm ghost" id="rmPhoto">Remove photo</button>`:"";
+}
+$("#prev").addEventListener("click",e=>{
+  if(e.target.id==="rmPhoto"){photoData="";$("#form").photo.value="";showPrev()}
+});
+$("#form").photo.addEventListener("change",e=>{
+  const file=e.target.files[0]; if(!file)return;
+  if(!file.type.startsWith("image/")){$("#err").textContent="Please choose an image file.";return}
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const im=new Image();
+    im.onload=()=>{ // shrink to max 800px so it fits in browser storage
+      const s=Math.min(1,800/Math.max(im.width,im.height)), c=document.createElement("canvas");
+      c.width=Math.round(im.width*s); c.height=Math.round(im.height*s);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      photoData=c.toDataURL("image/jpeg",.75); showPrev(); $("#err").textContent="";
+    };
+    im.src=rd.result;
+  };
+  rd.readAsDataURL(file);
+});
 
 // ---------- setup ----------
 const opts=CATS.map(c=>`<option>${c}</option>`).join("");
