@@ -89,9 +89,9 @@ h1 em{font-style:normal;display:inline-block;line-height:1.05;background:var(--y
 .empty{grid-column:1/-1;justify-self:center;width:min(420px,100%);padding:30px 24px;text-align:center;transform:rotate(1deg)}
 .empty b{display:block;font:400 34px var(--hand);margin-bottom:6px}
 
-dialog{border:0;border-radius:6px;padding:0;width:min(540px,calc(100% - 24px));background:var(--paper);color:var(--ink);margin:auto;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+dialog{border:0;border-radius:6px;padding:0;width:min(540px,calc(100% - 24px));max-height:92dvh;overflow-y:auto;background:var(--paper);color:var(--ink);margin:auto;box-shadow:0 30px 80px rgba(0,0,0,.55)}
 dialog::backdrop{background:rgba(30,18,6,.65)}
-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px}
+form{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 form h2{grid-column:1/-1;font:400 38px var(--hand)}
 .full{grid-column:1/-1}
 label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px}
@@ -153,7 +153,7 @@ form input,form select,form textarea{width:100%;background:#fff;border:2px solid
     <div class="full"><label for="mDesc">Description</label><textarea id="mDesc" rows="2" placeholder="Colour, size, marks, stickers…"></textarea></div>
     <div><label for="mWhere">Where</label><input id="mWhere" required placeholder="Building, room or spot"></div>
     <div><label for="mWhen">When</label><input id="mWhen" type="date" required></div>
-    <div class="full"><label for="mContact">Contact (email or office)</label><input id="mContact" required></div>
+    <div class="full"><label for="mContact">Contact Number or TIP Email</label><input id="mContact" required maxlength="80" placeholder="e.g. 0917 123 4567 or name@tip.edu.ph"></div>
     <div class="full"><label for="mPhoto">Photo (optional)</label><input id="mPhoto" type="file" accept="image/*"><div class="prev" id="prev"></div></div>
     <p class="full err" id="err" role="alert"></p>
     <div class="end"><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn go">Pin it</button></div>
@@ -278,7 +278,7 @@ $("form").onsubmit=async e=>{
   e.preventDefault();
   const d={type:mType,title:$("mName").value.trim(),category:$("mCat").value,campus:$("mCampus").value,description:$("mDesc").value.trim(),
     location:$("mWhere").value.trim(),date:$("mWhen").value,contact:$("mContact").value.trim(),photo:photoData};
-  if(!d.title||!d.location||!d.contact||!d.date){$("err").textContent="Fill in the item name, location, date and contact.";return}
+  if(!d.title||!d.location||!d.contact||!d.date){$("err").textContent="Fill in the item name, location, date and a contact number or TIP email.";return}
   try{
     if(editing){
       const u=await api("/api/items/"+editing.id,{method:"PUT",body:JSON.stringify({...d,status:editing.status})});
