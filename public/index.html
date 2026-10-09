@@ -1,84 +1,241 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TIP Lost &amp; Found</title>
-<link rel="icon" href="tip-logo.png">
+<title>TIP Lost & Found</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wood:#6B4423; --wood2:#52331A; --cork:#CF9F66; --cork2:#B98A52; --ink:#2A2118; --muted:#6B5D4D; --navy:#14203F;
+  --paper:#FFFDF6; --yellow:#FFD23F; --lost:#E0502F; --lost-bg:#FFD3C8; --found:#14A07C; --found-bg:#CDF1E1; --done:#8A8478; --done-bg:#E6E2D8;
+  --hand:"Caveat Brush","Segoe Print","Comic Sans MS",cursive;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--cork:#7C5C38;--cork2:#684B2B;--wood:#33200F;--wood2:#241508}}
+:root[data-theme="dark"]{--cork:#7C5C38;--cork2:#684B2B;--wood:#33200F;--wood2:#241508}
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%}
+body{background:var(--wood2);color:var(--ink);font:15px/1.45 var(--body);padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+
+.frame{max-width:1680px;margin:0 auto;min-height:100vh;padding:clamp(8px,1.6vw,26px)}
+.board{min-height:calc(100vh - 52px);border:clamp(10px,1.6vw,22px) solid var(--wood);border-radius:12px;
+  padding:clamp(16px,2.6vw,40px) clamp(14px,3vw,52px) 56px;
+  background:
+   radial-gradient(circle at 20% 30%,rgba(255,255,255,.10) 0 2px,transparent 3px) 0 0/34px 34px,
+   radial-gradient(circle at 70% 60%,rgba(0,0,0,.10) 0 2px,transparent 3px) 0 0/26px 26px,
+   radial-gradient(circle at 45% 80%,rgba(0,0,0,.07) 0 1.5px,transparent 2.5px) 0 0/19px 19px,var(--cork);
+  box-shadow:inset 0 0 50px rgba(0,0,0,.35),0 0 0 3px var(--wood2)}
+
+.pin{position:absolute;top:-9px;left:50%;margin-left:-9px;width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#7fb2ff,#2456b8);box-shadow:0 4px 5px rgba(0,0,0,.45)}
+.p-red{background:radial-gradient(circle at 35% 30%,#ff8d77,#C23A1F)}
+.p-green{background:radial-gradient(circle at 35% 30%,#7be3b8,#0b7a5b)}
+.p-grey{background:radial-gradient(circle at 35% 30%,#d3d0c6,#7d776a)}
+.paper{position:relative;background:var(--paper);box-shadow:0 1px 1px rgba(0,0,0,.2),0 12px 18px -6px rgba(0,0,0,.45)}
+
+/* header: same order as the original page */
+.head{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:30px}
+.title{padding:18px 28px 18px 20px;display:flex;gap:18px;align-items:center;transform:rotate(-.7deg);border-radius:3px;max-width:100%}
+.badge{width:78px;height:78px;border-radius:50%;background:var(--yellow);color:var(--navy);display:grid;place-items:center;font:800 24px var(--body);border:5px solid var(--navy);flex:none}
+.title small{display:block;color:var(--muted);font-weight:600;font-size:13px}
+h1{font:400 clamp(44px,6vw,72px)/.95 var(--hand);color:var(--navy)}
+h1 em{font-style:normal;background:var(--yellow);padding:0 10px;border-radius:6px;margin-left:4px}
+.tag{color:var(--muted);max-width:44ch;margin-top:4px}
+.cta{position:relative;border:0;cursor:pointer;background:var(--yellow);color:#3A2E00;font:400 26px/1.1 var(--hand);padding:20px 26px 16px;
+  transform:rotate(2.5deg);box-shadow:0 12px 18px -6px rgba(0,0,0,.5);transition:transform .15s}
+.cta:hover{transform:rotate(0) scale(1.04)}
+
+/* stats: three pinned index cards */
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+.stat{position:relative;border:0;cursor:pointer;background:var(--paper);padding:20px 22px 12px;text-align:left;min-width:150px;border-top:4px solid var(--c);
+  box-shadow:0 10px 16px -6px rgba(0,0,0,.45);transform:rotate(var(--r))}
+.stat b{font:400 44px/1 var(--hand);color:var(--c);margin-right:8px}
+.stat span{color:var(--muted);font-weight:600}
+.stat[aria-pressed="true"]{outline:3px solid var(--navy)}
+.s-l{--c:var(--lost);--r:-1.2deg}.s-f{--c:var(--found);--r:.8deg}.s-r{--c:var(--done);--r:-.5deg}
+
+/* filter strip, taped on */
+.strip{position:relative;display:grid;grid-template-columns:minmax(220px,2.2fr) repeat(4,minmax(130px,1fr));gap:10px;padding:16px 18px;margin-bottom:34px;border-radius:3px}
+.strip::before,.strip::after{content:"";position:absolute;top:-10px;width:80px;height:22px;background:rgba(255,226,120,.8);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.strip::before{left:30px;transform:rotate(-4deg)}.strip::after{right:30px;transform:rotate(3deg)}
+.strip input,.strip select{width:100%;background:#fff;border:2px solid #E3DAC2;border-radius:10px;padding:10px 12px}
+.strip .mini{display:none}
+
+/* items: strict grid, like the original */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:34px 26px;align-items:stretch}
+.note{display:flex;flex-direction:column;padding:28px 20px 16px;border-radius:3px;border-bottom:6px solid var(--c);transform:rotate(var(--r));transition:transform .18s;background:var(--bg)}
+.note:hover,.note:focus-within{transform:rotate(0) translateY(-4px);z-index:2}
+.note.lost{--c:var(--lost);--bg:var(--lost-bg)}.note.found{--c:var(--found);--bg:var(--found-bg)}.note.done{--c:var(--done);--bg:var(--done-bg)}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.chip{font-weight:700;font-size:12.5px;padding:2px 11px;border-radius:99px;background:var(--c);color:#fff}
+.top .cat{margin-left:auto;color:var(--muted);font-size:13.5px}
+.note h3{font:400 31px/1 var(--hand);margin:6px 0 8px;color:var(--navy)}
+.note.done h3{text-decoration:line-through}
+.desc{color:#4a3f33;margin-bottom:10px}
+.lines{display:grid;gap:3px;border-top:2px dashed rgba(42,33,24,.3);padding-top:10px;margin-bottom:14px;font-size:14px}
+.lines div{display:grid;grid-template-columns:64px 1fr;gap:6px}
+.lines .k{color:var(--muted)}.lines b{font-weight:600;overflow-wrap:anywhere}
+.acts{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap}
+.btn{border:2px solid var(--ink);background:rgba(255,255,255,.6);border-radius:8px;padding:5px 11px;font-weight:700;font-size:13.5px;cursor:pointer}
+.btn:hover{background:#fff}
+.btn.del{margin-left:auto;border-color:transparent;color:#a42d12}
+.stamp{position:absolute;right:12px;top:40px;border:3px solid #5a5446;color:#5a5446;font:400 26px var(--hand);padding:0 10px;border-radius:6px;transform:rotate(-12deg);opacity:.75;pointer-events:none}
+.empty{grid-column:1/-1;justify-self:center;width:min(420px,100%);padding:30px 24px;text-align:center;transform:rotate(1deg)}
+.empty b{display:block;font:400 34px var(--hand);margin-bottom:6px}
+
+dialog{border:0;border-radius:6px;padding:0;width:min(540px,calc(100% - 24px));background:var(--paper);color:var(--ink);margin:auto;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+dialog::backdrop{background:rgba(30,18,6,.65)}
+form{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px}
+form h2{grid-column:1/-1;font:400 38px var(--hand)}
+.full{grid-column:1/-1}
+label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px}
+form input,form select,form textarea{width:100%;background:#fff;border:2px solid #E3DAC2;border-radius:8px;padding:9px 12px}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:#EFE9D8;border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:8px;border-radius:9px;font-weight:700;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--navy);color:#fff}
+.end{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.end .btn{padding:9px 16px}.end .go{background:var(--navy);color:#fff;border-color:var(--navy)}
+.toast{position:fixed;left:50%;top:calc(16px + env(safe-area-inset-top,0px));transform:translate(-50%,-20px);background:var(--navy);color:#fff;padding:9px 18px;border-radius:99px;opacity:0;pointer-events:none;transition:.25s;font-weight:700;z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.theme{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:42px;height:42px;border-radius:50%;border:0;background:var(--paper);font-size:18px;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.4)}
+
+@media (max-width:1100px){.strip{grid-template-columns:1fr 1fr}.strip .q{grid-column:1/-1}}
+@media (max-width:560px){.grid{grid-template-columns:1fr}.strip{grid-template-columns:1fr}form{grid-template-columns:1fr}.title{flex-direction:column;align-items:flex-start}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.note,.stat,.title,.cta{transform:none}}
+</style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="top">
-      <div class="brand">
-        <img class="logo" src="tip-logo.png" alt="Technological Institute of the Philippines seal" width="88" height="88">
-        <div>
-          <p class="school">Technological Institute of the Philippines</p>
-          <h1>Lost <span>&amp; Found</span></h1>
-          <p class="sub">Lost something on campus? Found something that isn't yours? Post it here so it gets back to its owner.</p>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn primary" id="add">Report an item</button>
-      </div>
+<div class="frame"><div class="board">
+
+  <header class="head">
+    <div class="paper title"><span class="pin" aria-hidden="true"></span>
+      <div class="badge" role="img" aria-label="TIP logo placeholder">TIP</div>
+      <div><small>Technological Institute of the Philippines</small>
+        <h1>Lost <em>&amp; Found</em></h1>
+        <p class="tag">Lost something on campus? Found something that isn’t yours? Pin it here so it gets back to its owner.</p></div>
     </div>
-    <div class="stats" id="stats"></div>
+    <button class="cta" id="newBtn"><span class="pin p-red" aria-hidden="true"></span>Report an item</button>
   </header>
 
-  <div class="tools">
-    <input type="search" id="q" placeholder="Search by name, place or description" aria-label="Search items">
-    <select id="ftype" aria-label="Filter by type"><option value="">Lost and found</option><option value="lost">Lost</option><option value="found">Found</option></select>
-    <select id="fcampus" aria-label="Filter by campus"><option value="">Both campuses</option><option>Manila</option><option>Quezon City</option></select>
-    <select id="fcat" aria-label="Filter by category"></select>
-    <select id="fstat" aria-label="Filter by status"><option value="open">Still open</option><option value="returned">Returned</option><option value="">All statuses</option></select>
-  </div>
+  <section class="stats" id="stats" aria-label="Summary"></section>
 
-  <main class="grid" id="list"></main>
-</div>
+  <section class="paper strip" aria-label="Filters">
+    <input class="q" id="q" type="search" placeholder="Search by name, place or description" aria-label="Search">
+    <select id="fType" aria-label="Type"><option value="all">Lost and found</option><option value="lost">Lost only</option><option value="found">Found only</option></select>
+    <select id="fCampus" aria-label="Campus"><option value="">Both campuses</option><option>Manila</option><option>Quezon City</option></select>
+    <select id="fCat" aria-label="Category"></select>
+    <select id="fStatus" aria-label="Status"><option value="open">Still open</option><option value="done">Returned</option><option value="all">Open and returned</option></select>
+  </section>
 
-<dialog id="formDlg">
-  <form class="dlg" id="form" method="dialog" novalidate>
-    <h2 id="formTitle">Report an item</h2>
-    <div class="seg" role="radiogroup" aria-label="Item type">
-      <label><input type="radio" name="type" value="lost" checked><span class="l">I lost it</span></label>
-      <label><input type="radio" name="type" value="found"><span class="f">I found it</span></label>
-    </div>
-    <label>Item name<input name="title" maxlength="60" placeholder="Blue water bottle" required></label>
-    <div class="two">
-      <label>Category<select name="category"></select></label>
-      <label>Date<input type="date" name="date" required></label>
-    </div>
-    <div class="two">
-      <label>Campus<select name="campus"><option>Manila</option><option>Quezon City</option></select></label>
-      <label>Specific location<input name="location" maxlength="60" placeholder="Library, 2nd floor" required></label>
-    </div>
-    <label>Description<textarea name="description" rows="3" maxlength="300" placeholder="Color, brand, marks, what's inside"></textarea></label>
-    <label>Photo (optional)<input type="file" name="photo" accept="image/*"></label>
-    <div id="prev" class="prev"></div>
-    <label>Contact (email or phone)<input name="contact" maxlength="60" required></label>
-    <p class="err" id="err" role="alert"></p>
-    <div class="foot">
-      <button type="button" class="btn ghost" id="cancel">Cancel</button>
-      <button type="submit" class="btn primary" id="save">Save item</button>
-    </div>
+  <main class="grid" id="grid"></main>
+</div></div>
+
+<button class="theme" id="theme" aria-label="Toggle light or dark" title="Light / dark">◐</button>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <h2 id="dlgTitle">Report an item</h2>
+    <div class="full"><label>I…</label><div class="seg" id="mType"></div></div>
+    <div class="full"><label for="mName">Item name</label><input id="mName" required maxlength="60"></div>
+    <div><label for="mCat">Category</label><select id="mCat"></select></div>
+    <div><label for="mCampus">Campus</label><select id="mCampus"><option>Manila</option><option>Quezon City</option></select></div>
+    <div class="full"><label for="mDesc">Description</label><textarea id="mDesc" rows="2" placeholder="Colour, size, marks, stickers…"></textarea></div>
+    <div><label for="mWhere">Where</label><input id="mWhere" required placeholder="Building, room or spot"></div>
+    <div><label for="mWhen">When</label><input id="mWhen" type="date" required></div>
+    <div class="full"><label for="mContact">Contact (email or office)</label><input id="mContact" required></div>
+    <div class="end"><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn go">Pin it</button></div>
   </form>
 </dialog>
+<div class="toast" id="toast" role="status"></div>
 
-<dialog id="delDlg">
-  <div class="dlg">
-    <h2>Delete this item?</h2>
-    <p id="delText" style="margin:0;color:var(--muted)"></p>
-    <div class="foot">
-      <button class="btn ghost" id="delNo">Keep it</button>
-      <button class="btn danger" id="delYes">Delete item</button>
-    </div>
-  </div>
-</dialog>
-<div id="toast" role="status"></div>
+<script>
+const CATS=["Electronics","Keys & Cards","Clothing","Bags","Books & Stationery","Other"];
+const KEY="tip-lost-found-bulletin-v1";
+const seed=[
+ {id:1,type:"lost",name:"Black Casio calculator",cat:"Electronics",campus:"Manila",desc:"fx-991 with a green sticker on the back.",where:"Engineering Hall, Room 204",when:"2026-10-08",contact:"maya@tip.edu.ph",done:false},
+ {id:2,type:"found",name:"Student ID card",cat:"Keys & Cards",campus:"Quezon City",desc:"Found near the tray return. Name starts with J. Santos.",where:"Cafeteria entrance",when:"2026-10-07",contact:"Security desk, ext. 114",done:false},
+ {id:3,type:"found",name:"Grey hoodie",cat:"Clothing",campus:"Quezon City",desc:"Size M, university logo on the chest.",where:"Gym bleachers",when:"2026-10-05",contact:"gym@tip.edu.ph",done:false},
+ {id:4,type:"lost",name:"Blue umbrella",cat:"Other",campus:"Manila",desc:"Foldable, wooden handle.",where:"Library lobby",when:"2026-10-01",contact:"front@tip.edu.ph",done:true}
+];
+let items;try{items=JSON.parse(localStorage.getItem(KEY))||seed}catch(e){items=seed}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}};
+const $=id=>document.getElementById(id);
+const f={q:"",type:"all",campus:"",cat:"",status:"open"};let editing=null,mType="lost";
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=d=>new Date(d+"T00:00").toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"});
+const tilt=id=>(((id*2654435761)>>>0)%240)/100-1.2; // small, stable tilt per note
+const toast=m=>{const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000)};
+const sync=()=>{$("fType").value=f.type;$("fStatus").value=f.status};
 
-<script src="app.js"></script>
+function render(){
+  const open=items.filter(i=>!i.done);
+  const S=[["s-l","p-red","lost","lost, still open",open.filter(i=>i.type==="lost").length],
+           ["s-f","p-green","found","found, waiting for owner",open.filter(i=>i.type==="found").length],
+           ["s-r","p-grey","done","returned",items.filter(i=>i.done).length]];
+  $("stats").innerHTML=S.map(([c,p,k,l,n])=>`<button class="stat ${c}" data-k="${k}" aria-pressed="${k==="done"?f.status==="done":(f.status==="open"&&f.type===k)}"><span class="pin ${p}" aria-hidden="true"></span><b>${n}</b><span>${l}</span></button>`).join("");
+  const q=f.q.toLowerCase();
+  const list=items.filter(i=>(f.type==="all"||i.type===f.type)&&(!f.campus||i.campus===f.campus)&&(!f.cat||i.cat===f.cat)&&
+    (f.status==="all"||(f.status==="done")===i.done)&&(!q||[i.name,i.where,i.desc,i.cat].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.when.localeCompare(a.when));
+  $("grid").innerHTML=list.length?list.map(i=>`
+    <article class="paper note ${i.done?"done":i.type}" style="--r:${tilt(i.id).toFixed(2)}deg" data-id="${i.id}">
+      <span class="pin ${i.done?"p-grey":i.type==="lost"?"p-red":"p-green"}" aria-hidden="true"></span>
+      ${i.done?`<span class="stamp">Returned</span>`:""}
+      <div class="top"><span class="chip">${i.type==="lost"?"Lost":"Found"}</span><span class="cat">${esc(i.cat)}</span></div>
+      <h3>${esc(i.name)}</h3>
+      ${i.desc?`<p class="desc">${esc(i.desc)}</p>`:""}
+      <dl class="lines"><div><span class="k">Campus</span><b>${esc(i.campus)}</b></div><div><span class="k">Where</span><b>${esc(i.where)}</b></div>
+        <div><span class="k">When</span><b>${fmt(i.when)}</b></div><div><span class="k">Contact</span><b>${esc(i.contact)}</b></div></dl>
+      <div class="acts"><button class="btn" data-a="edit">Edit</button>
+        <button class="btn" data-a="${i.done?"reopen":"done"}">${i.done?"Reopen":"Mark returned"}</button>
+        <button class="btn del" data-a="del" aria-label="Delete ${esc(i.name)}">Delete</button></div>
+    </article>`).join(""):
+    `<div class="paper empty"><span class="pin" aria-hidden="true"></span><b>Nothing pinned here</b>Clear a filter, or report an item of your own.</div>`;
+  sync();
+}
+$("stats").onclick=e=>{const b=e.target.closest(".stat");if(!b)return;
+  if(b.dataset.k==="done"){f.status="done";f.type="all"}else{f.status="open";f.type=b.dataset.k}render()};
+$("grid").onclick=e=>{
+  const b=e.target.closest("button[data-a]");if(!b)return;
+  const it=items.find(x=>x.id==b.closest(".note").dataset.id),a=b.dataset.a;
+  if(a==="edit")return openForm(it);
+  if(a==="del"){if(!confirm(`Take down “${it.name}”?`))return;items=items.filter(x=>x!==it);toast("Note removed")}
+  if(a==="done"){it.done=true;toast("Marked as returned")}
+  if(a==="reopen"){it.done=false;toast("Reopened")}
+  save();render();
+};
+$("q").oninput=e=>{f.q=e.target.value;render()};
+$("fType").onchange=e=>{f.type=e.target.value;render()};
+$("fCampus").onchange=e=>{f.campus=e.target.value;render()};
+$("fCat").onchange=e=>{f.cat=e.target.value;render()};
+$("fStatus").onchange=e=>{f.status=e.target.value;render()};
+$("theme").onclick=()=>{const r=document.documentElement;r.dataset.theme=getComputedStyle(r).getPropertyValue("--cork").trim()==="#7C5C38"?"light":"dark"};
+$("fCat").innerHTML='<option value="">All categories</option>'+CATS.map(c=>`<option>${c}</option>`).join("");
+$("mCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+
+function drawType(){$("mType").innerHTML=[["lost","Lost something"],["found","Found something"]].map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${v===mType}">${l}</button>`).join("")}
+$("mType").onclick=e=>{const b=e.target.closest("button");if(b){mType=b.dataset.v;drawType()}};
+function openForm(it){
+  editing=it||null;mType=it?it.type:"lost";drawType();
+  $("dlgTitle").textContent=it?"Edit item":"Report an item";
+  $("mName").value=it?.name||"";$("mCat").value=it?.cat||CATS[0];$("mCampus").value=it?.campus||"Manila";
+  $("mDesc").value=it?.desc||"";$("mWhere").value=it?.where||"";
+  $("mWhen").value=it?.when||new Date().toISOString().slice(0,10);$("mContact").value=it?.contact||"";
+  $("dlg").showModal();
+}
+$("newBtn").onclick=()=>openForm();
+$("cancel").onclick=()=>$("dlg").close();
+$("form").onsubmit=e=>{
+  e.preventDefault();
+  const d={type:mType,name:$("mName").value.trim(),cat:$("mCat").value,campus:$("mCampus").value,desc:$("mDesc").value.trim(),
+    where:$("mWhere").value.trim(),when:$("mWhen").value,contact:$("mContact").value.trim()};
+  if(editing){Object.assign(editing,d);toast("Changes saved")}else{items.push({id:Date.now(),done:false,...d});toast("Item pinned")}
+  save();$("dlg").close();render();
+};
+render();
+</script>
 </body>
 </html>
