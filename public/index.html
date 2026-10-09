@@ -40,11 +40,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* header: same order as the original page */
 .head{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:30px}
 .title{padding:18px 28px 18px 20px;display:flex;gap:18px;align-items:center;transform:rotate(-.7deg);border-radius:3px;max-width:100%}
-.badge{width:78px;height:78px;border-radius:50%;background:var(--yellow);color:var(--navy);display:grid;place-items:center;font:800 24px var(--body);border:5px solid var(--navy);flex:none}
-.title small{display:block;color:var(--muted);font-weight:600;font-size:13px}
-h1{font:400 clamp(44px,6vw,72px)/.95 var(--hand);color:var(--navy)}
-h1 em{font-style:normal;background:var(--yellow);padding:0 10px;border-radius:6px;margin-left:4px}
-.tag{color:var(--muted);max-width:44ch;margin-top:4px}
+.badge{width:88px;height:88px;border-radius:50%;flex:none;overflow:hidden;display:block;background:none}
+.badge img{display:block;width:100%;height:100%;object-fit:contain;border-radius:50%}
+@media (max-width:560px){.badge{width:72px;height:72px}}
+.title small{display:block;color:var(--muted);font-weight:600;font-size:13px;margin-bottom:10px;position:relative;z-index:1}
+h1{font:400 clamp(44px,6vw,72px)/1.15 var(--hand);color:var(--navy);margin:0}
+h1 em{font-style:normal;display:inline-block;line-height:1.05;background:var(--yellow);padding:4px 12px 0;border-radius:6px;margin-left:4px}
+.tag{color:var(--muted);max-width:44ch;margin-top:10px}
 .cta{position:relative;border:0;cursor:pointer;background:var(--yellow);color:#3A2E00;font:400 26px/1.1 var(--hand);padding:20px 26px 16px;
   transform:rotate(2.5deg);box-shadow:0 12px 18px -6px rgba(0,0,0,.5);transition:transform .15s}
 .cta:hover{transform:rotate(0) scale(1.04)}
@@ -113,7 +115,9 @@ form input,form select,form textarea{width:100%;background:#fff;border:2px solid
 
   <header class="head">
     <div class="paper title"><span class="pin" aria-hidden="true"></span>
-      <div class="badge" role="img" aria-label="TIP logo placeholder">TIP</div>
+      <div class="badge">
+  <img src="tip-logo.png" alt="TIP logo">
+</div>
       <div><small>Technological Institute of the Philippines</small>
         <h1>Lost <em>&amp; Found</em></h1>
         <p class="tag">Lost something on campus? Found something that isn’t yours? Pin it here so it gets back to its owner.</p></div>
