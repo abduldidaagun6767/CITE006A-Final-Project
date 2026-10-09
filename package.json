@@ -1,0 +1,14 @@
+{
+  "name": "tip-lost-and-found",
+  "version": "1.0.0",
+  "description": "Lost and Found web app for the Technological Institute of the Philippines (Manila and Quezon City)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
