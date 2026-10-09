@@ -105,6 +105,9 @@ form input,form select,form textarea{width:100%;background:#fff;border:2px solid
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .theme{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));width:42px;height:42px;border-radius:50%;border:0;background:var(--paper);font-size:18px;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.4)}
 
+.photo{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;margin:6px 0;background:rgba(0,0,0,.06)}
+.prev:empty{display:none}.prev{display:grid;gap:8px;justify-items:start}.prev img{max-width:100%;max-height:170px;border-radius:8px;border:1px solid #E3DAC2;object-fit:contain}
+.err{color:var(--lost);font-size:13px;min-height:1em}
 @media (max-width:1100px){.strip{grid-template-columns:1fr 1fr}.strip .q{grid-column:1/-1}}
 @media (max-width:560px){.grid{grid-template-columns:1fr}.strip{grid-template-columns:1fr}form{grid-template-columns:1fr}.title{flex-direction:column;align-items:flex-start}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.note,.stat,.title,.cta{transform:none}}
@@ -151,66 +154,65 @@ form input,form select,form textarea{width:100%;background:#fff;border:2px solid
     <div><label for="mWhere">Where</label><input id="mWhere" required placeholder="Building, room or spot"></div>
     <div><label for="mWhen">When</label><input id="mWhen" type="date" required></div>
     <div class="full"><label for="mContact">Contact (email or office)</label><input id="mContact" required></div>
+    <div class="full"><label for="mPhoto">Photo (optional)</label><input id="mPhoto" type="file" accept="image/*"><div class="prev" id="prev"></div></div>
+    <p class="full err" id="err" role="alert"></p>
     <div class="end"><button type="button" class="btn" id="cancel">Cancel</button><button type="submit" class="btn go">Pin it</button></div>
   </form>
 </dialog>
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-const CATS=["Electronics","Keys & Cards","Clothing","Bags","Books & Stationery","Other"];
-const KEY="tip-lost-found-bulletin-v1";
-const seed=[
- {id:1,type:"lost",name:"Black Casio calculator",cat:"Electronics",campus:"Manila",desc:"fx-991 with a green sticker on the back.",where:"Engineering Hall, Room 204",when:"2026-10-08",contact:"maya@tip.edu.ph",done:false},
- {id:2,type:"found",name:"Student ID card",cat:"Keys & Cards",campus:"Quezon City",desc:"Found near the tray return. Name starts with J. Santos.",where:"Cafeteria entrance",when:"2026-10-07",contact:"Security desk, ext. 114",done:false},
- {id:3,type:"found",name:"Grey hoodie",cat:"Clothing",campus:"Quezon City",desc:"Size M, university logo on the chest.",where:"Gym bleachers",when:"2026-10-05",contact:"gym@tip.edu.ph",done:false},
- {id:4,type:"lost",name:"Blue umbrella",cat:"Other",campus:"Manila",desc:"Foldable, wooden handle.",where:"Library lobby",when:"2026-10-01",contact:"front@tip.edu.ph",done:true}
-];
-let items;try{items=JSON.parse(localStorage.getItem(KEY))||seed}catch(e){items=seed}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){}};
+const CATS=["Electronics","Bags","Clothing","Keys & Cards","Books & Notes","Bottles & Lunch","Other"];
 const $=id=>document.getElementById(id);
-const f={q:"",type:"all",campus:"",cat:"",status:"open"};let editing=null,mType="lost";
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const f={q:"",type:"all",campus:"",cat:"",status:"open"};
+let items=[],editing=null,mType="lost",photoData="";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=d=>new Date(d+"T00:00").toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"});
-const tilt=id=>(((id*2654435761)>>>0)%240)/100-1.2; // small, stable tilt per note
+const tilt=id=>{let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return (h%240)/100-1.2}; // stable tilt per note
 const toast=m=>{const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2000)};
 const sync=()=>{$("fType").value=f.type;$("fStatus").value=f.status};
 
+// ---------- API (Express server) ----------
+async function api(url,opt={}){
+  const r=await fetch(url,{headers:{"Content-Type":"application/json"},...opt});
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||"Request failed ("+r.status+")")}
+  return r.status===204?null:r.json();
+}
+async function loadItems(){
+  try{items=await api("/api/items");render()}
+  catch(e){$("grid").innerHTML=`<div class="paper empty"><span class="pin" aria-hidden="true"></span><b>Server not reachable</b>Is it running? (${esc(e.message)})</div>`}
+}
+
+// ---------- READ ----------
+const isDone=i=>i.status==="returned";
 function render(){
-  const open=items.filter(i=>!i.done);
+  const open=items.filter(i=>!isDone(i));
   const S=[["s-l","p-red","lost","lost, still open",open.filter(i=>i.type==="lost").length],
            ["s-f","p-green","found","found, waiting for owner",open.filter(i=>i.type==="found").length],
-           ["s-r","p-grey","done","returned",items.filter(i=>i.done).length]];
+           ["s-r","p-grey","done","returned",items.filter(isDone).length]];
   $("stats").innerHTML=S.map(([c,p,k,l,n])=>`<button class="stat ${c}" data-k="${k}" aria-pressed="${k==="done"?f.status==="done":(f.status==="open"&&f.type===k)}"><span class="pin ${p}" aria-hidden="true"></span><b>${n}</b><span>${l}</span></button>`).join("");
   const q=f.q.toLowerCase();
-  const list=items.filter(i=>(f.type==="all"||i.type===f.type)&&(!f.campus||i.campus===f.campus)&&(!f.cat||i.cat===f.cat)&&
-    (f.status==="all"||(f.status==="done")===i.done)&&(!q||[i.name,i.where,i.desc,i.cat].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.when.localeCompare(a.when));
-  $("grid").innerHTML=list.length?list.map(i=>`
-    <article class="paper note ${i.done?"done":i.type}" style="--r:${tilt(i.id).toFixed(2)}deg" data-id="${i.id}">
-      <span class="pin ${i.done?"p-grey":i.type==="lost"?"p-red":"p-green"}" aria-hidden="true"></span>
-      ${i.done?`<span class="stamp">Returned</span>`:""}
-      <div class="top"><span class="chip">${i.type==="lost"?"Lost":"Found"}</span><span class="cat">${esc(i.cat)}</span></div>
-      <h3>${esc(i.name)}</h3>
-      ${i.desc?`<p class="desc">${esc(i.desc)}</p>`:""}
-      <dl class="lines"><div><span class="k">Campus</span><b>${esc(i.campus)}</b></div><div><span class="k">Where</span><b>${esc(i.where)}</b></div>
-        <div><span class="k">When</span><b>${fmt(i.when)}</b></div><div><span class="k">Contact</span><b>${esc(i.contact)}</b></div></dl>
+  const list=items.filter(i=>(f.type==="all"||i.type===f.type)&&(!f.campus||i.campus===f.campus)&&(!f.cat||i.category===f.cat)&&
+    (f.status==="all"||(f.status==="done")===isDone(i))&&(!q||[i.title,i.campus,i.location,i.description,i.category].join(" ").toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
+  $("grid").innerHTML=list.length?list.map(i=>{const d=isDone(i);return `
+    <article class="paper note ${d?"done":i.type}" style="--r:${tilt(i.id).toFixed(2)}deg" data-id="${esc(i.id)}">
+      <span class="pin ${d?"p-grey":i.type==="lost"?"p-red":"p-green"}" aria-hidden="true"></span>
+      ${d?`<span class="stamp">Returned</span>`:""}
+      <div class="top"><span class="chip">${i.type==="lost"?"Lost":"Found"}</span><span class="cat">${esc(i.category)}</span></div>
+      ${i.photo?`<img class="photo" src="${i.photo}" alt="Photo of ${esc(i.title)}">`:""}
+      <h3>${esc(i.title)}</h3>
+      ${i.description?`<p class="desc">${esc(i.description)}</p>`:""}
+      <dl class="lines"><div><span class="k">Campus</span><b>${esc(i.campus||"Not specified")}</b></div><div><span class="k">Where</span><b>${esc(i.location)}</b></div>
+        <div><span class="k">When</span><b>${fmt(i.date)}</b></div><div><span class="k">Contact</span><b>${esc(i.contact)}</b></div></dl>
       <div class="acts"><button class="btn" data-a="edit">Edit</button>
-        <button class="btn" data-a="${i.done?"reopen":"done"}">${i.done?"Reopen":"Mark returned"}</button>
-        <button class="btn del" data-a="del" aria-label="Delete ${esc(i.name)}">Delete</button></div>
-    </article>`).join(""):
+        <button class="btn" data-a="toggle">${d?"Reopen":"Mark returned"}</button>
+        <button class="btn del" data-a="del" aria-label="Delete ${esc(i.title)}">Delete</button></div>
+    </article>`}).join(""):
     `<div class="paper empty"><span class="pin" aria-hidden="true"></span><b>Nothing pinned here</b>Clear a filter, or report an item of your own.</div>`;
   sync();
 }
 $("stats").onclick=e=>{const b=e.target.closest(".stat");if(!b)return;
   if(b.dataset.k==="done"){f.status="done";f.type="all"}else{f.status="open";f.type=b.dataset.k}render()};
-$("grid").onclick=e=>{
-  const b=e.target.closest("button[data-a]");if(!b)return;
-  const it=items.find(x=>x.id==b.closest(".note").dataset.id),a=b.dataset.a;
-  if(a==="edit")return openForm(it);
-  if(a==="del"){if(!confirm(`Take down “${it.name}”?`))return;items=items.filter(x=>x!==it);toast("Note removed")}
-  if(a==="done"){it.done=true;toast("Marked as returned")}
-  if(a==="reopen"){it.done=false;toast("Reopened")}
-  save();render();
-};
 $("q").oninput=e=>{f.q=e.target.value;render()};
 $("fType").onchange=e=>{f.type=e.target.value;render()};
 $("fCampus").onchange=e=>{f.campus=e.target.value;render()};
@@ -220,26 +222,75 @@ $("theme").onclick=()=>{const r=document.documentElement;r.dataset.theme=getComp
 $("fCat").innerHTML='<option value="">All categories</option>'+CATS.map(c=>`<option>${c}</option>`).join("");
 $("mCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
 
+// ---------- UPDATE status / DELETE ----------
+$("grid").onclick=async e=>{
+  const b=e.target.closest("button[data-a]");if(!b)return;
+  const id=b.closest(".note").dataset.id,it=items.find(x=>String(x.id)===id),a=b.dataset.a;
+  if(!it)return;
+  if(a==="edit")return openForm(it);
+  try{
+    if(a==="del"){
+      if(!confirm(`Take down “${it.title}”?`))return;
+      await api("/api/items/"+id,{method:"DELETE"});
+      items=items.filter(x=>x!==it);toast("Note removed");
+    }else{
+      const status=isDone(it)?"open":"returned";
+      const u=await api("/api/items/"+id,{method:"PUT",body:JSON.stringify({...it,status})});
+      items=items.map(x=>x===it?u:x);toast(status==="returned"?"Marked as returned":"Reopened");
+    }
+    render();
+  }catch(err){toast(err.message)}
+};
+
+// ---------- CREATE / UPDATE form ----------
 function drawType(){$("mType").innerHTML=[["lost","Lost something"],["found","Found something"]].map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${v===mType}">${l}</button>`).join("")}
 $("mType").onclick=e=>{const b=e.target.closest("button");if(b){mType=b.dataset.v;drawType()}};
+function showPrev(){
+  $("prev").innerHTML=photoData?`<img src="${photoData}" alt="Selected photo preview"><button type="button" class="btn" id="rmPhoto">Remove photo</button>`:"";
+}
+$("prev").onclick=e=>{if(e.target.id==="rmPhoto"){photoData="";$("mPhoto").value="";showPrev()}};
+$("mPhoto").onchange=e=>{
+  const file=e.target.files[0];if(!file)return;
+  if(!file.type.startsWith("image/")){$("err").textContent="Please choose an image file.";return}
+  const rd=new FileReader();
+  rd.onload=()=>{const im=new Image();
+    im.onload=()=>{ // shrink to max 800px to keep uploads small
+      const s=Math.min(1,800/Math.max(im.width,im.height)),c=document.createElement("canvas");
+      c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+      photoData=c.toDataURL("image/jpeg",.75);showPrev();$("err").textContent="";
+    };im.src=rd.result};
+  rd.readAsDataURL(file);
+};
 function openForm(it){
-  editing=it||null;mType=it?it.type:"lost";drawType();
+  editing=it||null;mType=it?it.type:"lost";drawType();$("err").textContent="";
   $("dlgTitle").textContent=it?"Edit item":"Report an item";
-  $("mName").value=it?.name||"";$("mCat").value=it?.cat||CATS[0];$("mCampus").value=it?.campus||"Manila";
-  $("mDesc").value=it?.desc||"";$("mWhere").value=it?.where||"";
-  $("mWhen").value=it?.when||new Date().toISOString().slice(0,10);$("mContact").value=it?.contact||"";
-  $("dlg").showModal();
+  $("mName").value=it?.title||"";$("mCat").value=it?.category||CATS[0];$("mCampus").value=it?.campus||"Manila";
+  $("mDesc").value=it?.description||"";$("mWhere").value=it?.location||"";
+  const today=new Date().toISOString().slice(0,10);
+  $("mWhen").max=today;$("mWhen").value=it?.date||today;$("mContact").value=it?.contact||"";
+  photoData=it?.photo||"";$("mPhoto").value="";showPrev();
+  $("dlg").showModal();$("mName").focus();
 }
 $("newBtn").onclick=()=>openForm();
 $("cancel").onclick=()=>$("dlg").close();
-$("form").onsubmit=e=>{
+$("form").onsubmit=async e=>{
   e.preventDefault();
-  const d={type:mType,name:$("mName").value.trim(),cat:$("mCat").value,campus:$("mCampus").value,desc:$("mDesc").value.trim(),
-    where:$("mWhere").value.trim(),when:$("mWhen").value,contact:$("mContact").value.trim()};
-  if(editing){Object.assign(editing,d);toast("Changes saved")}else{items.push({id:Date.now(),done:false,...d});toast("Item pinned")}
-  save();$("dlg").close();render();
+  const d={type:mType,title:$("mName").value.trim(),category:$("mCat").value,campus:$("mCampus").value,description:$("mDesc").value.trim(),
+    location:$("mWhere").value.trim(),date:$("mWhen").value,contact:$("mContact").value.trim(),photo:photoData};
+  if(!d.title||!d.location||!d.contact||!d.date){$("err").textContent="Fill in the item name, location, date and contact.";return}
+  try{
+    if(editing){
+      const u=await api("/api/items/"+editing.id,{method:"PUT",body:JSON.stringify({...d,status:editing.status})});
+      items=items.map(x=>x===editing?u:x);toast("Changes saved");
+    }else{
+      const c=await api("/api/items",{method:"POST",body:JSON.stringify(d)});
+      items.unshift(c);toast("Item pinned");
+    }
+    render();$("dlg").close();
+  }catch(err){$("err").textContent=err.message}
 };
-render();
+loadItems();
 </script>
 </body>
 </html>
