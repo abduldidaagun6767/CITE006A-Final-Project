@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
@@ -8,9 +7,6 @@ const Item = require("./models/Item");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
-console.log("URI loaded:", !!MONGODB_URI);
-console.log("Username:", MONGODB_URI?.match(/:\/\/([^:]+):/)?.[1]);
-console.log("Hostname:", MONGODB_URI?.match(/@([^/]+)/)?.[1]);
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -177,7 +173,7 @@ async function start() {
     }
 
     app.listen(PORT, () => {
-      console.log(`TIP Lost & Found running at http://localhost:${PORT}`);
+      console.log(`TIP Lost & Found running on port ${PORT}`);
     });
   } catch (err) {
     console.error("Could not connect to MongoDB:", err.message);
