@@ -1,87 +1,188 @@
+
+require("dotenv").config();
 const express = require("express");
 const path = require("path");
-const crypto = require("crypto");
+const mongoose = require("mongoose");
+const Item = require("./models/Item");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
+console.log("URI loaded:", !!MONGODB_URI);
+console.log("Username:", MONGODB_URI?.match(/:\/\/([^:]+):/)?.[1]);
+console.log("Hostname:", MONGODB_URI?.match(/@([^/]+)/)?.[1]);
 
-app.use(express.json({ limit: "5mb" })); // photos arrive as base64 text
+app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
-
-// ---------- temporary in-memory storage ----------
-// Replaced by MongoDB in the next step (requirement #3).
-const daysAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
-let items = [
-  { id: crypto.randomUUID(), type: "lost",  title: "Black Casio calculator", category: "Electronics", campus: "Manila", location: "Engineering Hall, Room 204", date: daysAgo(1), description: "fx-991 with a green sticker on the back.", contact: "maya@tip.edu.ph", photo: "", status: "open" },
-  { id: crypto.randomUUID(), type: "found", title: "Student ID card", category: "Keys & Cards", campus: "Quezon City", location: "Cafeteria entrance", date: daysAgo(2), description: "Found near the tray return. Name starts with J. Santos.", contact: "Security desk, ext. 114", photo: "", status: "open" },
-  { id: crypto.randomUUID(), type: "found", title: "Grey hoodie", category: "Clothing", campus: "Quezon City", location: "Gym bleachers", date: daysAgo(4), description: "Size M, university logo on the chest.", contact: "gym@tip.edu.ph", photo: "", status: "open" },
-  { id: crypto.randomUUID(), type: "lost",  title: "Blue steel water bottle", category: "Bottles & Lunch", campus: "Manila", location: "Library, 2nd floor", date: daysAgo(6), description: "Dented at the bottom, sticker of a cat.", contact: "0917 555 0142", photo: "", status: "returned" }
-];
 
 const CAMPUSES = ["Manila", "Quezon City"];
 const TYPES = ["lost", "found"];
 const STATUSES = ["open", "returned"];
 
-// Returns a clean item object, or an error message string
 function validate(b) {
-  const s = v => (typeof v === "string" ? v.trim() : "");
+  const s = v => typeof v === "string" ? v.trim() : "";
   const item = {
-    type: s(b.type), title: s(b.title), category: s(b.category), campus: s(b.campus),
-    location: s(b.location), date: s(b.date), description: s(b.description),
-    contact: s(b.contact), photo: typeof b.photo === "string" ? b.photo : "",
+    type: s(b.type),
+    title: s(b.title),
+    category: s(b.category) || "Other",
+    campus: s(b.campus),
+    location: s(b.location),
+    date: s(b.date),
+    description: s(b.description),
+    contact: s(b.contact),
+    photo: typeof b.photo === "string" ? b.photo : "",
     status: s(b.status) || "open"
   };
-  if (!TYPES.includes(item.type)) return "Type must be 'lost' or 'found'.";
-  if (!CAMPUSES.includes(item.campus)) return "Campus must be Manila or Quezon City.";
-  if (!STATUSES.includes(item.status)) return "Status must be 'open' or 'returned'.";
-  if (!item.title || !item.location || !item.contact || !/^\d{4}-\d{2}-\d{2}$/.test(item.date))
+
+  if (!TYPES.includes(item.type))
+    return "Type must be 'lost' or 'found'.";
+  if (!CAMPUSES.includes(item.campus))
+    return "Campus must be Manila or Quezon City.";
+  if (!STATUSES.includes(item.status))
+    return "Status must be 'open' or 'returned'.";
+  if (!item.title || !item.location || !item.contact ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(item.date))
     return "Title, location, contact and a valid date are required.";
+
   return item;
 }
 
-// ---------- API routes ----------
-// READ all (optional filters: ?campus=Manila&type=lost&status=open&q=bottle)
-app.get("/api/items", (req, res) => {
+const wrap = fn => (req, res) =>
+  Promise.resolve(fn(req, res)).catch(err => {
+    if (err.name === "ValidationError")
+      return res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Server error. Please try again." });
+  });
+
+const notFound = res =>
+  res.status(404).json({ error: "Item not found." });
+
+// READ all items with optional filters
+app.get("/api/items", wrap(async (req, res) => {
   const { campus, type, status, q } = req.query;
-  const out = items.filter(i =>
-    (!campus || i.campus === campus) && (!type || i.type === type) && (!status || i.status === status) &&
-    (!q || [i.title, i.location, i.description].join(" ").toLowerCase().includes(String(q).toLowerCase()))
-  );
-  res.json(out);
-});
+  const filter = {};
 
-// READ one
-app.get("/api/items/:id", (req, res) => {
-  const item = items.find(i => i.id === req.params.id);
-  if (!item) return res.status(404).json({ error: "Item not found." });
+  if (campus) filter.campus = String(campus);
+  if (type) filter.type = String(type);
+  if (status) filter.status = String(status);
+
+  if (q) {
+    const escaped = String(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rx = new RegExp(escaped, "i");
+    filter.$or = [
+      { title: rx },
+      { location: rx },
+      { description: rx }
+    ];
+  }
+
+  res.json(await Item.find(filter).sort({ createdAt: -1 }));
+}));
+
+// READ one item
+app.get("/api/items/:id", wrap(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return notFound(res);
+  const item = await Item.findById(req.params.id);
+  if (!item) return notFound(res);
   res.json(item);
-});
+}));
 
-// CREATE
-app.post("/api/items", (req, res) => {
+// CREATE an item
+app.post("/api/items", wrap(async (req, res) => {
   const data = validate(req.body || {});
-  if (typeof data === "string") return res.status(400).json({ error: data });
-  const item = { id: crypto.randomUUID(), ...data, status: "open" };
-  items.unshift(item);
+  if (typeof data === "string")
+    return res.status(400).json({ error: data });
+
+  const item = await Item.create({ ...data, status: "open" });
   res.status(201).json(item);
-});
+}));
 
-// UPDATE
-app.put("/api/items/:id", (req, res) => {
-  const idx = items.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Item not found." });
+// UPDATE an item
+app.put("/api/items/:id", wrap(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return notFound(res);
   const data = validate(req.body || {});
-  if (typeof data === "string") return res.status(400).json({ error: data });
-  items[idx] = { ...items[idx], ...data };
-  res.json(items[idx]);
-});
+  if (typeof data === "string")
+    return res.status(400).json({ error: data });
 
-// DELETE
-app.delete("/api/items/:id", (req, res) => {
-  const idx = items.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Item not found." });
-  items.splice(idx, 1);
+  const item = await Item.findByIdAndUpdate(
+    req.params.id, data, { new: true, runValidators: true }
+  );
+  if (!item) return notFound(res);
+  res.json(item);
+}));
+
+// DELETE an item
+app.delete("/api/items/:id", wrap(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return notFound(res);
+  const item = await Item.findByIdAndDelete(req.params.id);
+  if (!item) return notFound(res);
   res.status(204).end();
-});
+}));
 
-app.listen(PORT, () => console.log(`TIP Lost & Found running at http://localhost:${PORT}`));
+const daysAgo = n => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+};
+
+const SAMPLES = [
+  {
+    type: "lost", title: "Black Casio calculator",
+    category: "Electronics", campus: "Manila",
+    location: "Engineering Hall, Room 204", date: daysAgo(1),
+    description: "fx-991 with a green sticker on the back.",
+    contact: "maya@tip.edu.ph"
+  },
+  {
+    type: "found", title: "Student ID card",
+    category: "Keys & Cards", campus: "Quezon City",
+    location: "Cafeteria entrance", date: daysAgo(2),
+    description: "Found near the tray return. Name starts with J. Santos.",
+    contact: "Security desk, ext. 114"
+  },
+  {
+    type: "found", title: "Grey hoodie",
+    category: "Clothing", campus: "Quezon City",
+    location: "Gym bleachers", date: daysAgo(4),
+    description: "Size M, university logo on the chest.",
+    contact: "gym@tip.edu.ph"
+  },
+  {
+    type: "lost", title: "Blue steel water bottle",
+    category: "Bottles & Lunch", campus: "Manila",
+    location: "Library, 2nd floor", date: daysAgo(6),
+    description: "Dented at the bottom, sticker of a cat.",
+    contact: "0917 555 0142",
+    status: "returned"
+  }
+];
+
+async function start() {
+  if (!MONGODB_URI) {
+    console.error("Missing MONGODB_URI. Check your .env file.");
+    process.exit(1);
+  }
+
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000
+    });
+
+    console.log("Connected to MongoDB:", mongoose.connection.name);
+
+    if (await Item.countDocuments() === 0) {
+      await Item.insertMany(SAMPLES);
+      console.log("Empty database: added 4 sample items.");
+    }
+
+    app.listen(PORT, () => {
+      console.log(`TIP Lost & Found running at http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error("Could not connect to MongoDB:", err.message);
+    process.exit(1);
+  }
+}
+
+start();
